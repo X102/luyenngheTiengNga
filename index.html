@@ -47,16 +47,18 @@
     </div>
 
     <script>
-        // Các URL cho các tệp dữ liệu trên GitHub.
-        // Đã cập nhật các URL dựa trên thông tin bạn cung cấp.
-        const GITHUB_MP4_LINKS_URL = 'https://github.com/X102/luyenngheTiengNga/blob/main/video_id.txt';
+        // URL cho tệp chứa danh sách các liên kết MP4.
+        // Đã cập nhật để trỏ đến kho lưu trữ của bạn.
+        const GITHUB_MP4_LINKS_URL = 'https://raw.githubusercontent.com/X102/tiengngaThaoNguyen/main/github_mp4_links.txt';
+        
         // LƯU Ý QUAN TRỌNG: JavaScript không thể đọc trực tiếp tệp .docx.
-        // Bạn cần chuyển đổi 'Фразы.docx' thành tệp văn bản thuần túy (.txt) và cập nhật URL này.
-        // Ví dụ: 'https://raw.githubusercontent.com/X102/tiengngaThaoNguyen/main/phrases.txt'
-        const PHRASES_DOCX_URL = 'https://github.com/X102/luyenngheTiengNga/blob/main/Фразы.txt'; 
+        // Bạn cần chuyển đổi 'Фразы.docx' thành tệp văn bản thuần túy (.txt) và tải nó lên GitHub.
+        // Đảm bảo URL này trỏ đến tệp .txt đã chuyển đổi của bạn.
+        const PHRASES_DOCX_URL = 'https://raw.githubusercontent.com/X102/tiengngaThaoNguyen/main/Фразы.txt'; 
 
-        // URL cơ sở cho các tệp video trong thư mục 'recordings'
-        const BASE_VIDEO_URL = 'https://raw.githubusercontent.com/X102/tiengngaThaoNguyen/main/recordings/';
+        // Biểu thức chính quy để trích xuất speakerId và phraseId từ URL video.
+        // Ví dụ: recordings/1.108.mp4 -> speakerId: 1, phraseId: 108
+        const BASE_VIDEO_PATH_PATTERN = /recordings\/(\d+)\.(\d+)\.mp4$/;
 
         // Lấy các phần tử DOM
         const videoSelect = document.getElementById('videoSelect');
@@ -65,8 +67,8 @@
         const loadingMessage = document.getElementById('loadingMessage');
         const errorMessage = document.getElementById('errorMessage');
 
-        let allPhrases = new Map(); // Map để lưu trữ các cụm từ theo ID (số dòng)
-        let videoData = []; // Mảng để lưu trữ dữ liệu video (speakerId, phraseId)
+        let allPhrases = new Map(); // Map để lưu trữ các cụm từ theo ID (số được trích xuất từ dòng)
+        let videoData = []; // Mảng để lưu trữ dữ liệu video (full URL, speakerId, phraseId)
 
         /**
          * Hiển thị thông báo lỗi trên giao diện người dùng.
@@ -108,39 +110,55 @@
             videoSelect.disabled = true; // Vô hiệu hóa dropdown khi đang tải
 
             try {
-                // Tải danh sách video IDs từ github_mp4_links.txt
+                // Tải danh sách video URLs từ github_mp4_links.txt
                 const videoLinksText = await fetchData(GITHUB_MP4_LINKS_URL);
                 videoData = videoLinksText.split('\n')
                                         .map(line => line.trim()) // Xóa khoảng trắng thừa
-                                        .filter(line => line !== '') // Lọc bỏ các dòng trống
-                                        .map(line => {
-                                            const parts = line.split('.');
-                                            // Đảm bảo định dạng là 'speakerId.phraseId'
-                                            if (parts.length === 2 && !isNaN(parseInt(parts[0])) && !isNaN(parseInt(parts[1]))) {
-                                                return { speakerId: parts[0], phraseId: parseInt(parts[1]) };
-                                            }
-                                            console.warn(`Bỏ qua dòng không hợp lệ trong github_mp4_links.txt: "${line}"`);
-                                            return null; // Bỏ qua các dòng không hợp lệ
-                                        })
-                                        .filter(item => item !== null); // Lọc bỏ các mục null
+                                        .filter(line => line !== ''); // Lọc bỏ các dòng trống
 
-                // Tải danh sách cụm từ từ phrases.txt (hoặc Фразы.docx nếu bạn đã đổi tên thành .txt)
+                // Xử lý từng URL để trích xuất speakerId và phraseId
+                videoData = videoData.map(url => {
+                    const match = url.match(BASE_VIDEO_PATH_PATTERN);
+                    if (match && match.length === 3) {
+                        return { 
+                            fullUrl: url, 
+                            speakerId: match[1], 
+                            phraseId: parseInt(match[2]) 
+                        };
+                    }
+                    console.warn(`Bỏ qua URL không hợp lệ trong github_mp4_links.txt: "${url}"`);
+                    return null; // Bỏ qua các mục null
+                }).filter(item => item !== null); // Lọc bỏ các mục null
+
+                // Tải danh sách cụm từ từ Фразы.txt
                 const phrasesText = await fetchData(PHRASES_DOCX_URL);
-                const lines = phrasesText.split('\n');
-                lines.forEach((line, index) => {
-                    // ID cụm từ là số dòng (1-indexed)
-                    allPhrases.set(index + 1, line.trim()); 
+                const lines = phrasesText.split('\n')
+                                         .map(line => line.trim()) // Trim mỗi dòng
+                                         .filter(line => line !== ''); // Lọc bỏ các dòng trống
+
+                // Điền allPhrases bằng cách trích xuất số từ đầu dòng
+                lines.forEach((line) => {
+                    // Regex để trích xuất số và văn bản từ dòng (ví dụ: "108. Văn bản")
+                    const match = line.match(/^(\d+)\.\s*(.*)$/); 
+                    if (match && match.length >= 3) {
+                        const phraseNum = parseInt(match[1]);
+                        const phraseContent = match[2].trim();
+                        allPhrases.set(phraseNum, phraseContent);
+                    } else {
+                        // Nếu dòng không khớp định dạng "số. văn bản", có thể bỏ qua hoặc xử lý khác
+                        console.warn(`Dòng không khớp định dạng "số. văn bản" trong Фразы.txt: "${line}"`);
+                    }
                 });
 
                 // Điền các tùy chọn vào dropdown
                 videoSelect.innerHTML = '<option value="" disabled selected>Chọn một video</option>'; // Đặt lại tùy chọn mặc định
                 if (videoData.length === 0) {
-                    displayError("Không tìm thấy dữ liệu video nào. Vui lòng kiểm tra github_mp4_links.txt.");
+                    displayError("Không tìm thấy dữ liệu video nào. Vui lòng kiểm tra github_mp4_links.txt và định dạng URL.");
                     return;
                 }
                 videoData.forEach((data) => {
                     const option = document.createElement('option');
-                    option.value = `${data.speakerId}.${data.phraseId}`;
+                    option.value = data.fullUrl; // Giá trị của option là full URL
                     option.textContent = `Video ${data.speakerId}.${data.phraseId}`;
                     videoSelect.appendChild(option);
                 });
@@ -159,23 +177,24 @@
          * Xử lý sự kiện khi người dùng chọn một video từ dropdown.
          */
         videoSelect.addEventListener('change', () => {
-            const selectedValue = videoSelect.value;
-            if (selectedValue) {
-                const [speakerId, phraseId] = selectedValue.split('.');
-                const videoUrl = `${BASE_VIDEO_URL}${speakerId}.${phraseId}.mp4`;
-                const phraseText = allPhrases.get(parseInt(phraseId));
+            const selectedVideoUrl = videoSelect.value;
+            if (selectedVideoUrl) {
+                // Trích xuất phraseId từ URL đã chọn
+                const match = selectedVideoUrl.match(BASE_VIDEO_PATH_PATTERN);
+                let phraseText = 'Không tìm thấy văn bản tương ứng cho cụm từ này.';
+                if (match && match.length === 3) {
+                    const phraseId = parseInt(match[2]);
+                    phraseText = allPhrases.get(phraseId) || phraseText;
+                }
 
-                videoPlayer.src = videoUrl;
-                // Hiển thị văn bản hoặc thông báo nếu không tìm thấy
-                phraseDisplay.textContent = phraseText || 'Không tìm thấy văn bản tương ứng cho cụm từ này.';
+                videoPlayer.src = selectedVideoUrl;
+                phraseDisplay.textContent = phraseText;
                 videoPlayer.load(); // Tải video mới
                 // Cố gắng tự động phát video, bắt lỗi nếu trình duyệt chặn
                 videoPlayer.play().catch(e => {
                     console.error("Lỗi khi phát video tự động:", e);
                     // Thông báo cho người dùng nếu tự động phát bị chặn
                     // (ví dụ: trình duyệt yêu cầu tương tác của người dùng trước khi phát)
-                    // Không dùng alert(), thay vào đó có thể hiển thị một thông báo trên UI
-                    // phraseDisplay.textContent += "\n(Vui lòng nhấn nút Play để phát video)";
                 });
             } else {
                 // Nếu không có video nào được chọn (ví dụ: tùy chọn mặc định)
