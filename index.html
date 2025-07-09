@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trình phát Video và Văn bản</title>
+    <title>Luyện Nghe cùng Thảo Nguyên</title>
     <!-- Tailwind CSS CDN để tạo kiểu dáng đẹp mắt và phản hồi nhanh -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -83,22 +83,39 @@
             </button>
         </div>
 
-        <!-- Phần hiển thị văn bản tương ứng (Văn bản được đánh trọng âm) -->
-        <!-- Ban đầu thêm class hidden-text để ẩn đi -->
+        <!-- Phần hiển thị văn bản tương ứng -->
         <div id="phraseContainer" class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded-lg hidden-text" role="alert">
-            <p class="font-bold mb-2">Văn bản tương ứng (có trọng âm):</p>
+            <p class="font-bold mb-2">Văn bản tương ứng:</p>
             <p id="phraseDisplay" class="text-gray-800 text-lg">Vui lòng chọn một video để xem văn bản.</p>
+        </div>
+
+        <!-- Nút ẩn/hiện trọng âm -->
+        <div class="mb-4 text-center">
+            <button id="toggleStressedPhraseButton" class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+                Ẩn/Hiện Trọng âm
+            </button>
+        </div>
+
+        <!-- Phần hiển thị văn bản có trọng âm -->
+        <div id="stressedPhraseContainer" class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded-lg hidden-text mt-4" role="alert">
+            <p class="font-bold mb-2">Văn bản có trọng âm:</p>
+            <p id="stressedPhraseDisplay" class="text-gray-800 text-lg">Vui lòng chọn một video để xem văn bản có trọng âm.</p>
+            <div id="stressedPhraseLoading" class="mt-2 text-center text-gray-600 hidden">Đang tạo trọng âm...</div>
+        </div>
+
+        <!-- Chú thích RussianGram.com -->
+        <div class="mt-4 p-3 bg-gray-50 rounded-lg shadow-sm text-center text-gray-700">
+            <p>Trọng âm được đánh bởi AI, nếu bạn muốn trọng âm chuẩn hơn, hãy sử dụng công cụ tại <a href="https://www.russiangram.com/" target="_blank" class="text-blue-600 hover:underline font-semibold">RussianGram.com</a></p>
         </div>
 
         <!-- Menu ngữ cảnh cho tra cứu từ -->
         <div id="contextMenu" class="context-menu hidden">
             <button id="lookupVtudien">Tra vtudien.com</button>
-            <!-- Nút "Tra Wiki Nga" đã được loại bỏ -->
             <button id="lookupWiktionary">Tra Wiktionary</button>
             <button id="lookupYouglish">Tra Youglish</button>
             <hr class="my-2 border-gray-200"> <!-- Đường phân cách -->
-            <button id="generateVocabFromWord">Tạo TV từ từ này</button>
-            <button id="generateSentenceFromWord">Tạo câu từ từ này</button>
+            <button id="generateVocabFromWord">Từ vựng liên quan</button>
+            <button id="generateSentenceFromWord">Tạo câu liên quan</button>
         </div>
 
         <!-- Dịch nghĩa tiếng Việt -->
@@ -113,6 +130,20 @@
                 <p class="text-gray-500">Nhấn "Dịch Văn bản" để xem nghĩa tiếng Việt.</p>
             </div>
             <div id="translationLoading" class="mt-2 text-center text-gray-600 hidden">Đang dịch văn bản...</div>
+        </div>
+
+        <!-- Danh sách từ nguyên thể và nghĩa tiếng Việt -->
+        <div class="mt-6 p-4 bg-gray-50 rounded-lg shadow-sm">
+            <h3 class="text-xl font-semibold text-gray-700 mb-3">Danh sách Từ vựng trong câu</h3>
+            <div class="flex flex-col sm:flex-row gap-3 mb-3">
+                <button id="generateInfinitiveListButton" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+                    Tạo Danh sách Từ vựng
+                </button>
+            </div>
+            <div id="infinitiveListOutput" class="mt-4 p-3 bg-white border border-gray-200 rounded-lg text-gray-800 min-h-[50px] max-h-[300px] overflow-y-auto">
+                <p class="text-gray-500">Nhấn "Tạo Danh sách Từ vựng" để xem.</p>
+            </div>
+            <div id="infinitiveListLoading" class="mt-2 text-center text-gray-600 hidden">Đang tạo danh sách từ...</div>
         </div>
 
         <!-- Các công cụ AI -->
@@ -153,7 +184,7 @@
         </div>
 
         <!-- Thông báo tải và lỗi -->
-        <div id="loadingMessage" class="mt-4 text-center text-gray-600">Đang tải dữ liệu...</div>
+        <div id="loadingMessage" class="mt-4 text-center text-gray-600 hidden">Đang tải dữ liệu...</div>
         <div id="errorMessage" class="mt-4 text-center text-red-600 hidden"></div>
     </div>
 
@@ -179,14 +210,19 @@
         const loadingMessage = document.getElementById('loadingMessage');
         const errorMessage = document.getElementById('errorMessage');
 
+        // Các phần tử cho phần trọng âm
+        const stressedPhraseContainer = document.getElementById('stressedPhraseContainer');
+        const stressedPhraseDisplay = document.getElementById('stressedPhraseDisplay');
+        const toggleStressedPhraseButton = document.getElementById('toggleStressedPhraseButton');
+        const stressedPhraseLoading = document.getElementById('stressedPhraseLoading'); // Loading cho trọng âm
+
         // Các phần tử cho menu ngữ cảnh
         const contextMenu = document.getElementById('contextMenu');
         const lookupVtudienButton = document.getElementById('lookupVtudien'); 
-        // const lookupWikiButton = document.getElementById('lookupWiki'); // Đã loại bỏ
         const lookupWiktionaryButton = document.getElementById('lookupWiktionary'); 
         const lookupYouglishButton = document.getElementById('lookupYouglish');
-        const generateVocabFromWordButton = document.getElementById('generateVocabFromWord'); // Nút mới
-        const generateSentenceFromWordButton = document.getElementById('generateSentenceFromWord'); // Nút mới
+        const generateVocabFromWordButton = document.getElementById('generateVocabFromWord'); 
+        const generateSentenceFromWordButton = document.getElementById('generateSentenceFromWord'); 
         let selectedWord = ''; // Biến để lưu từ được chọn
 
         // Các phần tử cho công cụ AI
@@ -205,15 +241,29 @@
         const translationOutput = document.getElementById('translationOutput');
         const translationLoading = document.getElementById('translationLoading');
 
+        // Các phần tử cho danh sách từ nguyên thể
+        const generateInfinitiveListButton = document.getElementById('generateInfinitiveListButton');
+        const infinitiveListOutput = document.getElementById('infinitiveListOutput');
+        const infinitiveListLoading = document.getElementById('infinitiveListLoading');
+
         let allPhrases = new Map(); // Map để lưu trữ các cụm từ theo ID (số được trích xuất từ dòng)
         let videoData = []; // Mảng để lưu trữ dữ liệu video (full URL, speakerId, phraseId)
 
         // Ẩn menu ngữ cảnh khi click bất cứ đâu ngoài menu
         document.addEventListener('click', (event) => {
-            if (!contextMenu.contains(event.target) && event.target.className !== 'clickable-word' && event.target.id !== 'togglePhraseButton') {
+            if (!contextMenu.contains(event.target) && event.target.className !== 'clickable-word' && event.target.id !== 'togglePhraseButton' && event.target.id !== 'toggleStressedPhraseButton' && event.target.id !== 'generateInfinitiveListButton' && event.target.id !== 'translatePhraseButton' && event.target.id !== 'generateVocabButton' && event.target.id !== 'generateSentenceButton') {
                 contextMenu.classList.add('hidden');
             }
         });
+
+        /**
+         * Hàm kiểm tra xem một chuỗi có chứa dấu trọng âm Unicode (Combining Acute Accent) hay không.
+         * @param {string} text - Chuỗi cần kiểm tra.
+         * @returns {boolean} - True nếu có dấu trọng âm, ngược lại là False.
+         */
+        function containsStressMark(text) {
+            return text.includes('\u0301'); // Unicode for Combining Acute Accent
+        }
 
         /**
          * Hiển thị thông báo lỗi trên giao diện người dùng.
@@ -277,23 +327,32 @@
 
                 // Tải danh sách cụm từ từ Фразы.txt
                 const phrasesText = await fetchData(PHRASES_DOCX_URL);
-                const lines = phrasesText.split('\n')
-                                         .map(line => line.trim()) // Trim mỗi dòng
-                                         .filter(line => line !== ''); // Lọc bỏ các dòng trống
+                const lines = phrasesText.split('\n'); // Giữ nguyên các dòng để phân tích đa dòng
+                let currentPhraseId = null;
+                let currentPhraseLines = [];
 
-                // Điền allPhrases bằng cách trích xuất số từ đầu dòng
                 lines.forEach((line) => {
-                    // Regex để trích xuất số và văn bản từ dòng (ví dụ: "108. Văn bản")
-                    const match = line.match(/^(\d+)\.\s*(.*)$/); 
+                    const trimmedLine = line.trim();
+                    const match = trimmedLine.match(/^(\d+)\.\s*(.*)$/); 
+
                     if (match && match.length >= 3) {
-                        const phraseNum = parseInt(match[1]);
-                        const phraseContent = match[2].trim();
-                        allPhrases.set(phraseNum, phraseContent);
-                    } else {
-                        // Nếu dòng không khớp định dạng "số. văn bản", có thể bỏ qua hoặc xử lý khác
-                        console.warn(`Dòng không khớp định dạng "số. văn bản" trong Фразы.txt: "${line}"`);
+                        // Tìm thấy một ID cụm từ mới, lưu cụm từ trước đó nếu có
+                        if (currentPhraseId !== null) {
+                            allPhrases.set(currentPhraseId, currentPhraseLines.join(' ').trim());
+                        }
+                        currentPhraseId = parseInt(match[1]);
+                        currentPhraseLines = [match[2].trim()]; // Bắt đầu cụm từ mới với nội dung sau số
+                    } else if (currentPhraseId !== null && trimmedLine !== '') {
+                        // Tiếp tục cụm từ hiện tại
+                        currentPhraseLines.push(trimmedLine);
                     }
+                    // Nếu currentPhraseId là null và dòng không bắt đầu bằng số, bỏ qua các dòng trống/không hợp lệ đầu tiên
                 });
+
+                // Lưu cụm từ cuối cùng sau khi vòng lặp kết thúc
+                if (currentPhraseId !== null) {
+                    allPhrases.set(currentPhraseId, currentPhraseLines.join(' ').trim());
+                }
 
                 // Điền các tùy chọn vào dropdown
                 videoSelect.innerHTML = '<option value="" disabled selected>Chọn một video</option>'; // Đặt lại tùy chọn mặc định
@@ -317,117 +376,6 @@
                 displayError(`Không thể khởi tạo ứng dụng: ${error.message}. Vui lòng kiểm tra các URL và đảm bảo các tệp có sẵn trên GitHub.`);
             }
         }
-
-        /**
-         * Xử lý sự kiện khi người dùng chọn một video từ dropdown.
-         */
-        videoSelect.addEventListener('change', () => {
-            const selectedVideoUrl = videoSelect.value;
-            if (selectedVideoUrl) {
-                // Trích xuất phraseId từ URL đã chọn
-                const match = selectedVideoUrl.match(BASE_VIDEO_PATH_PATTERN);
-                let phraseText = 'Không tìm thấy văn bản tương ứng cho cụm từ này.';
-                if (match && match.length === 3) {
-                    const phraseId = parseInt(match[2]);
-                    phraseText = allPhrases.get(phraseId) || phraseText;
-                }
-
-                videoPlayer.src = selectedVideoUrl;
-                // Hiển thị văn bản với các từ có thể click
-                phraseDisplay.innerHTML = phraseText.split(/\s+/).map(word => {
-                    // Loại bỏ dấu câu khỏi từ trước khi bọc thẻ span
-                    const cleanWord = word.replace(/[.,!?;:]$/, ''); 
-                    return `<span class="clickable-word" data-word="${cleanWord}">${word}</span>`;
-                }).join(' ');
-
-                videoPlayer.load(); // Tải video mới
-                // Cố gắng tự động phát video, bắt lỗi nếu trình duyệt chặn
-                videoPlayer.play().catch(e => {
-                    console.error("Lỗi khi phát video tự động:", e);
-                    // Thông báo cho người dùng nếu tự động phát bị chặn
-                    // (ví dụ: trình duyệt yêu cầu tương tác của người dùng trước khi phát)
-                });
-
-                // Đặt lại trạng thái ẩn cho văn bản khi chọn video mới
-                phraseContainer.classList.add('hidden-text');
-                // Xóa nội dung dịch cũ
-                translationOutput.innerHTML = '<p class="text-gray-500">Nhấn "Dịch Văn bản" để xem nghĩa tiếng Việt.</p>';
-
-            } else {
-                // Nếu không có video nào được chọn (ví dụ: tùy chọn mặc định)
-                videoPlayer.src = ''; 
-                phraseDisplay.innerHTML = 'Vui lòng chọn một video để xem văn bản.';
-            }
-        });
-
-        // Xử lý sự kiện khi nhấp vào nút ẩn/hiện văn bản
-        togglePhraseButton.addEventListener('click', () => {
-            phraseContainer.classList.toggle('hidden-text');
-        });
-
-        // Xử lý sự kiện click trên phraseDisplay để hiển thị menu ngữ cảnh
-        phraseDisplay.addEventListener('click', (event) => {
-            const target = event.target;
-            if (target.classList.contains('clickable-word')) {
-                selectedWord = target.dataset.word; // Lấy từ đã click
-                contextMenu.style.left = `${event.pageX}px`;
-                contextMenu.style.top = `${event.pageY}px`;
-                contextMenu.classList.remove('hidden');
-            } else {
-                contextMenu.classList.add('hidden');
-            }
-        });
-
-        // Xử lý các nút trong menu ngữ cảnh
-        lookupVtudienButton.addEventListener('click', () => { 
-            if (selectedWord) {
-                window.open(`https://vtudien.com/nga-viet/dictionary/nghia-cua-tu-${encodeURIComponent(selectedWord)}`, '_blank');
-            }
-            contextMenu.classList.add('hidden');
-        });
-
-        // lookupWikiButton.addEventListener('click', () => { // Đã loại bỏ
-        //     if (selectedWord) {
-        //         window.open(`https://ru.wikipedia.org/wiki/${encodeURIComponent(selectedWord)}`, '_blank');
-        //     }
-        //     contextMenu.classList.add('hidden');
-        // });
-
-        lookupWiktionaryButton.addEventListener('click', () => { 
-            if (selectedWord) {
-                window.open(`https://ru.wiktionary.org/wiki/${encodeURIComponent(selectedWord)}`, '_blank');
-            }
-            contextMenu.classList.add('hidden');
-        });
-
-        lookupYouglishButton.addEventListener('click', () => {
-            if (selectedWord) {
-                window.open(`https://youglish.com/pronounce/${encodeURIComponent(selectedWord)}/russian`, '_blank');
-            }
-            contextMenu.classList.add('hidden');
-        });
-
-        // Nút mới: Tạo Từ Vựng từ từ được click
-        generateVocabFromWordButton.addEventListener('click', () => {
-            if (selectedWord) {
-                const prompt = `Generate 5 Russian vocabulary words related to "${selectedWord}" with their Vietnamese translations and stress marks if possible. Format as a numbered list.`;
-                generateContentWithAI(prompt, vocabOutput, vocabLoading);
-            } else {
-                vocabOutput.innerHTML = '<p class="text-red-500">Vui lòng chọn một từ để tạo từ vựng.</p>';
-            }
-            contextMenu.classList.add('hidden');
-        });
-
-        // Nút mới: Tạo Mẫu Câu từ từ được click
-        generateSentenceFromWordButton.addEventListener('click', () => {
-            if (selectedWord) {
-                const prompt = `Generate 3 Russian sentence patterns related to "${selectedWord}" with examples and Vietnamese translations. Format as a numbered list.`;
-                generateContentWithAI(prompt, sentenceOutput, sentenceLoading);
-            } else {
-                sentenceOutput.innerHTML = '<p class="text-red-500">Vui lòng chọn một từ để tạo mẫu câu.</p>';
-            }
-            contextMenu.classList.add('hidden');
-        });
 
         /**
          * Gọi Gemini API để tạo nội dung.
@@ -471,6 +419,180 @@
             }
         }
 
+        /**
+         * Tạo văn bản có trọng âm bằng Gemini AI.
+         * @param {string} rawPhrase - Văn bản gốc không có trọng âm.
+         * @param {number} phraseId - ID của cụm từ.
+         */
+        async function generateStressedText(rawPhrase, phraseId) {
+            stressedPhraseDisplay.innerHTML = `Đang tạo trọng âm cho cụm từ ${phraseId}...`;
+            stressedPhraseLoading.classList.remove('hidden');
+
+            const prompt = `Add stress marks to the following Russian text: "${rawPhrase}". Ensure the stress mark (Unicode U+0301) is placed directly over the stressed vowel. Only return the stressed text, no other explanations.`;
+            
+            let chatHistory = [];
+            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+            const payload = { contents: chatHistory };
+            const apiKey = ""; // Canvas sẽ cung cấp API key tại runtime
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const stressedText = result.candidates[0].content.parts[0].text;
+                    stressedPhraseDisplay.textContent = `${phraseId}. ${stressedText.trim()}`;
+                } else {
+                    stressedPhraseDisplay.innerHTML = `<p class="text-red-500">Không thể tạo trọng âm cho cụm từ ${phraseId}. Vui lòng thử lại.</p>`;
+                }
+            } catch (error) {
+                console.error('Lỗi khi gọi Gemini API để tạo trọng âm:', error);
+                stressedPhraseDisplay.innerHTML = `<p class="text-red-500">Đã xảy ra lỗi khi tạo trọng âm: ${error.message}.</p>`;
+            } finally {
+                stressedPhraseLoading.classList.add('hidden');
+            }
+        }
+
+
+        /**
+         * Xử lý sự kiện khi người dùng chọn một video từ dropdown.
+         */
+        videoSelect.addEventListener('change', () => {
+            const selectedVideoUrl = videoSelect.value;
+            if (selectedVideoUrl) {
+                // Trích xuất phraseId từ URL đã chọn
+                const match = selectedVideoUrl.match(BASE_VIDEO_PATH_PATTERN);
+                let phraseText = 'Không tìm thấy văn bản tương ứng cho cụm từ này.';
+                let currentPhraseId = null; // Biến để lưu ID cụm từ hiện tại
+
+                if (match && match.length === 3) {
+                    currentPhraseId = parseInt(match[2]);
+                    phraseText = allPhrases.get(currentPhraseId) || phraseText;
+                }
+
+                videoPlayer.src = selectedVideoUrl;
+                // Hiển thị văn bản với các từ có thể click, bao gồm số ID
+                const formattedPhraseForClickable = currentPhraseId !== null ? `${currentPhraseId}. ${phraseText}` : phraseText;
+                phraseDisplay.innerHTML = formattedPhraseForClickable.split(/\s+/).map(word => {
+                    // Loại bỏ dấu câu khỏi từ trước khi bọc thẻ span
+                    const cleanWord = word.replace(/[.,!?;:]$/, ''); 
+                    return `<span class="clickable-word" data-word="${cleanWord}">${word}</span>`;
+                }).join(' ');
+
+                // Xử lý văn bản có trọng âm
+                const rawPhraseContentWithoutId = phraseText; // Lấy nội dung văn bản không có ID
+                if (containsStressMark(rawPhraseContentWithoutId)) {
+                    // Nếu văn bản gốc đã có trọng âm, hiển thị trực tiếp
+                    stressedPhraseDisplay.textContent = `${currentPhraseId}. ${rawPhraseContentWithoutId}`;
+                    stressedPhraseLoading.classList.add('hidden'); // Ẩn loading nếu có sẵn
+                } else {
+                    // Nếu không có trọng âm, gọi AI để tạo
+                    stressedPhraseDisplay.textContent = `Đang tạo trọng âm cho cụm từ ${currentPhraseId}...`;
+                    stressedPhraseLoading.classList.remove('hidden');
+                    generateStressedText(rawPhraseContentWithoutId, currentPhraseId);
+                }
+
+                videoPlayer.load(); // Tải video mới
+                // Cố gắng tự động phát video, bắt lỗi nếu trình duyệt chặn
+                videoPlayer.play().catch(e => {
+                    console.error("Lỗi khi phát video tự động:", e);
+                    // Thông báo cho người dùng nếu tự động phát bị chặn
+                    // (ví dụ: trình duyệt yêu cầu tương tác của người dùng trước khi phát)
+                });
+
+                // Đặt lại trạng thái ẩn cho cả hai phần văn bản khi chọn video mới
+                phraseContainer.classList.add('hidden-text');
+                stressedPhraseContainer.classList.add('hidden-text'); // Ẩn phần trọng âm
+                // Xóa nội dung dịch cũ
+                translationOutput.innerHTML = '<p class="text-gray-500">Nhấn "Dịch Văn bản" để xem nghĩa tiếng Việt.</p>';
+                // Xóa nội dung danh sách từ nguyên thể cũ
+                infinitiveListOutput.innerHTML = '<p class="text-gray-500">Nhấn "Tạo Danh sách Từ Nguyên thể" để xem.</p>';
+
+
+            } else {
+                // Nếu không có video nào được chọn (ví dụ: tùy chọn mặc định)
+                videoPlayer.src = ''; 
+                phraseDisplay.innerHTML = 'Vui lòng chọn một video để xem văn bản.';
+                stressedPhraseDisplay.textContent = 'Vui lòng chọn một video để xem văn bản có trọng âm.';
+                stressedPhraseLoading.classList.add('hidden');
+                infinitiveListOutput.innerHTML = '<p class="text-gray-500">Nhấn "Tạo Danh sách Từ Nguyên thể" để xem.</p>';
+            }
+        });
+
+        // Xử lý sự kiện khi nhấp vào nút ẩn/hiện văn bản
+        togglePhraseButton.addEventListener('click', () => {
+            phraseContainer.classList.toggle('hidden-text');
+        });
+
+        // Xử lý sự kiện khi nhấp vào nút ẩn/hiện trọng âm
+        toggleStressedPhraseButton.addEventListener('click', () => {
+            stressedPhraseContainer.classList.toggle('hidden-text');
+        });
+
+        // Xử lý sự kiện click trên phraseDisplay để hiển thị menu ngữ cảnh
+        phraseDisplay.addEventListener('click', (event) => {
+            const target = event.target;
+            if (target.classList.contains('clickable-word')) {
+                selectedWord = target.dataset.word; // Lấy từ đã click
+                contextMenu.style.left = `${event.pageX}px`;
+                contextMenu.style.top = `${event.pageY}px`;
+                contextMenu.classList.remove('hidden');
+            } else {
+                contextMenu.classList.add('hidden');
+            }
+        });
+
+        // Xử lý các nút trong menu ngữ cảnh
+        lookupVtudienButton.addEventListener('click', () => { 
+            if (selectedWord) {
+                window.open(`https://vtudien.com/nga-viet/dictionary/nghia-cua-tu-${encodeURIComponent(selectedWord)}`, '_blank');
+            }
+            contextMenu.classList.add('hidden');
+        });
+
+        lookupWiktionaryButton.addEventListener('click', () => { 
+            if (selectedWord) {
+                window.open(`https://ru.wiktionary.org/wiki/${encodeURIComponent(selectedWord)}`, '_blank');
+            }
+            contextMenu.classList.add('hidden');
+        });
+
+        lookupYouglishButton.addEventListener('click', () => {
+            if (selectedWord) {
+                window.open(`https://youglish.com/pronounce/${encodeURIComponent(selectedWord)}/russian`, '_blank');
+            }
+            contextMenu.classList.add('hidden');
+        });
+
+        // Nút mới: Tạo Từ Vựng từ từ được click
+        generateVocabFromWordButton.addEventListener('click', () => {
+            if (selectedWord) {
+                const prompt = `Generate 5 Russian vocabulary words related to "${selectedWord}" with their Vietnamese translations and stress marks if possible. Format as a numbered list.`;
+                generateContentWithAI(prompt, vocabOutput, vocabLoading);
+            } else {
+                vocabOutput.innerHTML = '<p class="text-red-500">Vui lòng chọn một từ để tạo từ vựng.</p>';
+            }
+            contextMenu.classList.add('hidden');
+        });
+
+        // Nút mới: Tạo Mẫu Câu từ từ được click
+        generateSentenceFromWordButton.addEventListener('click', () => {
+            if (selectedWord) {
+                const prompt = `Generate 3 Russian sentence patterns related to "${selectedWord}" with examples and Vietnamese translations. Format as a numbered list.`;
+                generateContentWithAI(prompt, sentenceOutput, sentenceLoading);
+            } else {
+                sentenceOutput.innerHTML = '<p class="text-red-500">Vui lòng chọn một từ để tạo mẫu câu.</p>';
+            }
+            contextMenu.classList.add('hidden');
+        });
+
         // Xử lý nút "Tạo Từ Vựng" (từ input chủ đề)
         generateVocabButton.addEventListener('click', () => {
             const topic = vocabTopicInput.value.trim();
@@ -493,9 +615,32 @@
             }
         });
 
+        // Xử lý nút "Tạo Danh sách Từ Nguyên thể"
+        generateInfinitiveListButton.addEventListener('click', () => {
+            // Lấy văn bản từ phraseDisplay, loại bỏ số ID và dấu chấm đầu dòng nếu có
+            let currentRussianPhrase = phraseDisplay.textContent; 
+            const idMatch = currentRussianPhrase.match(/^(\d+)\.\s*(.*)$/);
+            if (idMatch && idMatch.length >= 3) {
+                currentRussianPhrase = idMatch[2].trim();
+            }
+
+            if (currentRussianPhrase && currentRussianPhrase !== 'Vui lòng chọn một video để xem văn bản.') {
+                const prompt = `For the following Russian text, extract all unique words. For each unique word, provide its original form, its infinitive form, and its Vietnamese translation. Sort the list alphabetically by the Russian infinitive form. Format each entry as: "Original Russian word : Infinitive form : Vietnamese translation". Russian text: "${currentRussianPhrase}"`;
+                generateContentWithAI(prompt, infinitiveListOutput, infinitiveListLoading);
+            } else {
+                infinitiveListOutput.innerHTML = '<p class="text-red-500">Không có văn bản để tạo danh sách từ. Vui lòng chọn một video trước.</p>';
+            }
+        });
+
         // Xử lý nút "Dịch Văn bản"
         translatePhraseButton.addEventListener('click', () => {
-            const currentRussianPhrase = phraseDisplay.textContent; 
+            // Lấy văn bản từ phraseDisplay, loại bỏ số ID và dấu chấm đầu dòng nếu có
+            let currentRussianPhrase = phraseDisplay.textContent; 
+            const idMatch = currentRussianPhrase.match(/^(\d+)\.\s*(.*)$/);
+            if (idMatch && idMatch.length >= 3) {
+                currentRussianPhrase = idMatch[2].trim();
+            }
+
             if (currentRussianPhrase && currentRussianPhrase !== 'Vui lòng chọn một video để xem văn bản.') {
                 const prompt = `Translate the following Russian text into Vietnamese: "${currentRussianPhrase}"`;
                 generateContentWithAI(prompt, translationOutput, translationLoading);
