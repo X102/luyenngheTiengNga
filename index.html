@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trình phát Video và Văn bản</title>
+    <!-- Tailwind CSS CDN để tạo kiểu dáng đẹp mắt và phản hồi nhanh -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Đảm bảo font Inter được sử dụng cho toàn bộ trang */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Đảm bảo video player có chiều rộng đầy đủ và chiều cao tự động */
+        #videoPlayer {
+            width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+    <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-2xl">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">Trình phát Video và Văn bản</h1>
+
+        <!-- Phần chọn video -->
+        <div class="mb-6">
+            <label for="videoSelect" class="block text-gray-700 text-sm font-bold mb-2">Chọn Video:</label>
+            <select id="videoSelect" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-white hover:border-gray-500 transition duration-300 ease-in-out">
+                <option value="" disabled selected>Đang tải video...</option>
+            </select>
+        </div>
+
+        <!-- Phần hiển thị video -->
+        <div class="mb-6 bg-gray-900 rounded-lg overflow-hidden shadow-md">
+            <video id="videoPlayer" controls class="w-full h-auto rounded-lg" poster="https://placehold.co/640x360/cccccc/333333?text=Video+Player"></video>
+        </div>
+
+        <!-- Phần hiển thị văn bản tương ứng -->
+        <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 rounded-lg" role="alert">
+            <p class="font-bold mb-2">Văn bản tương ứng:</p>
+            <p id="phraseDisplay" class="text-gray-800 text-lg">Vui lòng chọn một video để xem văn bản.</p>
+        </div>
+
+        <!-- Thông báo tải và lỗi -->
+        <div id="loadingMessage" class="mt-4 text-center text-gray-600">Đang tải dữ liệu...</div>
+        <div id="errorMessage" class="mt-4 text-center text-red-600 hidden"></div>
+    </div>
+
+    <script>
+        // Các URL cho các tệp dữ liệu trên GitHub.
+        // Đã cập nhật các URL dựa trên thông tin bạn cung cấp.
+        const GITHUB_MP4_LINKS_URL = 'https://raw.githubusercontent.com/X102/tiengngaThaoNguyen/main/github_mp4_links.txt';
+        // LƯU Ý QUAN TRỌNG: JavaScript không thể đọc trực tiếp tệp .docx.
+        // Bạn cần chuyển đổi 'Фразы.docx' thành tệp văn bản thuần túy (.txt) và cập nhật URL này.
+        // Ví dụ: 'https://raw.githubusercontent.com/X102/tiengngaThaoNguyen/main/phrases.txt'
+        const PHRASES_DOCX_URL = 'https://raw.githubusercontent.com/X102/tiengngaThaoNguyen/main/Фразы.txt'; 
+
+        // URL cơ sở cho các tệp video trong thư mục 'recordings'
+        const BASE_VIDEO_URL = 'https://raw.githubusercontent.com/X102/tiengngaThaoNguyen/main/recordings/';
+
+        // Lấy các phần tử DOM
+        const videoSelect = document.getElementById('videoSelect');
+        const videoPlayer = document.getElementById('videoPlayer');
+        const phraseDisplay = document.getElementById('phraseDisplay');
+        const loadingMessage = document.getElementById('loadingMessage');
+        const errorMessage = document.getElementById('errorMessage');
+
+        let allPhrases = new Map(); // Map để lưu trữ các cụm từ theo ID (số dòng)
+        let videoData = []; // Mảng để lưu trữ dữ liệu video (speakerId, phraseId)
+
+        /**
+         * Hiển thị thông báo lỗi trên giao diện người dùng.
+         * @param {string} message - Thông báo lỗi cần hiển thị.
+         */
+        function displayError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.remove('hidden');
+            loadingMessage.classList.add('hidden'); // Ẩn thông báo tải
+            videoSelect.disabled = true; // Vô hiệu hóa dropdown
+            videoSelect.innerHTML = '<option value="" disabled selected>Không thể tải video</option>'; // Cập nhật tùy chọn dropdown
+        }
+
+        /**
+         * Tải dữ liệu từ một URL bằng Fetch API.
+         * @param {string} url - URL của tệp cần tải.
+         * @returns {Promise<string>} - Nội dung của tệp dưới dạng chuỗi.
+         */
+        async function fetchData(url) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    // Ném lỗi nếu phản hồi HTTP không thành công (ví dụ: 404 Not Found)
+                    throw new Error(`Không thể tải dữ liệu từ ${url}: ${response.status} ${response.statusText}`);
+                }
+                return await response.text();
+            } catch (error) {
+                console.error('Lỗi khi tải dữ liệu:', error);
+                // Ném lại lỗi để xử lý ở cấp cao hơn trong initializeApp
+                throw error; 
+            }
+        }
+
+        /**
+         * Khởi tạo ứng dụng: tải dữ liệu video và cụm từ, sau đó điền vào dropdown.
+         */
+        async function initializeApp() {
+            loadingMessage.classList.remove('hidden'); // Hiển thị thông báo tải
+            videoSelect.disabled = true; // Vô hiệu hóa dropdown khi đang tải
+
+            try {
+                // Tải danh sách video IDs từ github_mp4_links.txt
+                const videoLinksText = await fetchData(GITHUB_MP4_LINKS_URL);
+                videoData = videoLinksText.split('\n')
+                                        .map(line => line.trim()) // Xóa khoảng trắng thừa
+                                        .filter(line => line !== '') // Lọc bỏ các dòng trống
+                                        .map(line => {
+                                            const parts = line.split('.');
+                                            // Đảm bảo định dạng là 'speakerId.phraseId'
+                                            if (parts.length === 2 && !isNaN(parseInt(parts[0])) && !isNaN(parseInt(parts[1]))) {
+                                                return { speakerId: parts[0], phraseId: parseInt(parts[1]) };
+                                            }
+                                            console.warn(`Bỏ qua dòng không hợp lệ trong github_mp4_links.txt: "${line}"`);
+                                            return null; // Bỏ qua các dòng không hợp lệ
+                                        })
+                                        .filter(item => item !== null); // Lọc bỏ các mục null
+
+                // Tải danh sách cụm từ từ phrases.txt (hoặc Фразы.docx nếu bạn đã đổi tên thành .txt)
+                const phrasesText = await fetchData(PHRASES_DOCX_URL);
+                const lines = phrasesText.split('\n');
+                lines.forEach((line, index) => {
+                    // ID cụm từ là số dòng (1-indexed)
+                    allPhrases.set(index + 1, line.trim()); 
+                });
+
+                // Điền các tùy chọn vào dropdown
+                videoSelect.innerHTML = '<option value="" disabled selected>Chọn một video</option>'; // Đặt lại tùy chọn mặc định
+                if (videoData.length === 0) {
+                    displayError("Không tìm thấy dữ liệu video nào. Vui lòng kiểm tra github_mp4_links.txt.");
+                    return;
+                }
+                videoData.forEach((data) => {
+                    const option = document.createElement('option');
+                    option.value = `${data.speakerId}.${data.phraseId}`;
+                    option.textContent = `Video ${data.speakerId}.${data.phraseId}`;
+                    videoSelect.appendChild(option);
+                });
+
+                videoSelect.disabled = false; // Kích hoạt dropdown sau khi tải xong
+                loadingMessage.classList.add('hidden'); // Ẩn thông báo tải
+
+            } catch (error) {
+                // Xử lý lỗi trong quá trình tải hoặc phân tích dữ liệu
+                // Thông báo lỗi sẽ bao gồm URL bị lỗi
+                displayError(`Không thể khởi tạo ứng dụng: ${error.message}. Vui lòng kiểm tra các URL và đảm bảo các tệp có sẵn trên GitHub.`);
+            }
+        }
+
+        /**
+         * Xử lý sự kiện khi người dùng chọn một video từ dropdown.
+         */
+        videoSelect.addEventListener('change', () => {
+            const selectedValue = videoSelect.value;
+            if (selectedValue) {
+                const [speakerId, phraseId] = selectedValue.split('.');
+                const videoUrl = `${BASE_VIDEO_URL}${speakerId}.${phraseId}.mp4`;
+                const phraseText = allPhrases.get(parseInt(phraseId));
+
+                videoPlayer.src = videoUrl;
+                // Hiển thị văn bản hoặc thông báo nếu không tìm thấy
+                phraseDisplay.textContent = phraseText || 'Không tìm thấy văn bản tương ứng cho cụm từ này.';
+                videoPlayer.load(); // Tải video mới
+                // Cố gắng tự động phát video, bắt lỗi nếu trình duyệt chặn
+                videoPlayer.play().catch(e => {
+                    console.error("Lỗi khi phát video tự động:", e);
+                    // Thông báo cho người dùng nếu tự động phát bị chặn
+                    // (ví dụ: trình duyệt yêu cầu tương tác của người dùng trước khi phát)
+                    // Không dùng alert(), thay vào đó có thể hiển thị một thông báo trên UI
+                    // phraseDisplay.textContent += "\n(Vui lòng nhấn nút Play để phát video)";
+                });
+            } else {
+                // Nếu không có video nào được chọn (ví dụ: tùy chọn mặc định)
+                videoPlayer.src = ''; 
+                phraseDisplay.textContent = 'Vui lòng chọn một video để xem văn bản.';
+            }
+        });
+
+        // Khởi tạo ứng dụng khi DOM đã tải hoàn chỉnh
+        document.addEventListener('DOMContentLoaded', initializeApp);
+    </script>
+</body>
+</html>
