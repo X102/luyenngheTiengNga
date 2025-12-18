@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Luyện Nghe cùng Thảo Nguyên</title>
+    <title>Luyện Nghe Tiếng Nga</title>
     <!-- Tailwind CSS CDN để tạo kiểu dáng đẹp mắt và phản hồi nhanh -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -61,7 +61,7 @@
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
     <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-2xl">
-        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">Luyện Nghe cùng Thảo Nguyên</h1>
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">Luyện Nghe Tiếng Nga</h1>
 
         <!-- Phần chọn video -->
         <div class="mb-6">
@@ -190,12 +190,12 @@
 
     <script>
         // URL cho tệp chứa danh sách các liên kết MP4.
-        const GITHUB_MP4_LINKS_URL = 'https://raw.githubusercontent.com/X102/tiengngaThaoNguyen/main/github_mp4_links.txt';
+        const GITHUB_MP4_LINKS_URL = 'https://raw.githubusercontent.com/X102/luyenngheTiengNga/main/github_mp4_links.txt';
         
         // LƯU Ý QUAN TRỌNG: JavaScript không thể đọc trực tiếp tệp .docx.
         // Bạn cần chuyển đổi 'Фразы.docx' thành tệp văn bản thuần túy (.txt) và tải nó lên GitHub.
         // Đảm bảo URL này trỏ đến tệp .txt đã chuyển đổi của bạn.
-        const PHRASES_DOCX_URL = 'https://raw.githubusercontent.com/X102/tiengngaThaoNguyen/main/Фразы.txt'; 
+        const PHRASES_DOCX_URL = 'https://raw.githubusercontent.com/X102/luyenngheTiengNga/main/Фразы.txt'; 
 
         // Biểu thức chính quy để trích xuất speakerId và phraseId từ URL video.
         // Ví dụ: recordings/1.108.mp4 -> speakerId: 1, phraseId: 108
@@ -391,7 +391,7 @@
             let chatHistory = [];
             chatHistory.push({ role: "user", parts: [{ text: prompt }] });
             const payload = { contents: chatHistory };
-            const apiKey = "AIzaSyByK7ww7MRpFmUHJU7Mz70qj6OhjUFYMCg"; // Canvas sẽ cung cấp API key tại runtime
+            const apiKey = "YOUR-API-KEY"; // ĐỢI CẬP NHẬT LẠI WEB ĐỂ SỬA CODE NÀY
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
             try {
